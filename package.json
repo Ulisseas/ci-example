@@ -1,5 +1,5 @@
 {
-  "name": "project-template",
+  "name": "ci-example",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -7,13 +7,14 @@
     "node": "24.x"
   },
   "scripts": {
-    "build": "echo \"replace with the project's build\"",
+    "check": "html-validate site",
     "prepare": "husky"
   },
   "devDependencies": {
     "@commitlint/cli": "^21.2.2",
     "@commitlint/config-conventional": "^21.2.2",
     "conventional-changelog-conventionalcommits": "^9.3.1",
+    "html-validate": "11.16.0",
     "husky": "^9.1.7",
     "semantic-release": "^25.0.9"
   },
@@ -44,5 +45,6 @@
         }
       ]
     ]
-  }
+  },
+  "description": "Example project proving the portfolio CI telemetry and uptime monitoring end to end"
 }
