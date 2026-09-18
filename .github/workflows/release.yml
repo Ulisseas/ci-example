@@ -1,6 +1,6 @@
 name: Release
 
-# One run per push to main (i.e. every squash-merged PR):
+# One run per push to main (i.e. every squash-merged PR), two jobs:
 #
 #   release  semantic-release reads the conventional commits since the last
 #            tag, and when they warrant a version it tags vX.Y.Z and publishes
@@ -10,21 +10,33 @@ name: Release
 #            on this job is enough and the protect-main ruleset needs no bypass
 #            actor. A merge whose title warrants no release (docs:, ci:,
 #            chore:, ...) cuts nothing and is picked up by the next release.
+#   deploy   Publishes site/ to GitHub Pages, only when a version was cut (or
+#            when forced by hand, see below). There is no build: the site is
+#            one static file, validated by ci.yml.
 #
-#   The "Record deployed version" steps upload a one-line artifact named
-#   deployed-version containing the tag that shipped. The shared ci-telemetry
-#   workflow (see telemetry.yml) reads it and labels this run's metrics with
-#   deployed_version, which is what the public Releases dashboard plots.
+#   The "Record deployed version" steps in the deploy job upload a one-line
+#   artifact named deployed-version containing the tag that shipped. The shared
+#   ci-telemetry workflow (see telemetry.yml) reads it and labels this run's
+#   metrics with deployed_version, which is what the public Releases dashboard
+#   plots. They live in the job that ships so the artifact reflects what was
+#   actually deployed, not merely what was tagged.
 #
-# Adding a deploy: add a `deploy` job with `needs: release` and
-# `if: needs.release.outputs.tag != ''` (Pages, a container registry, a CDN,
-# ...) and MOVE the two "deployed version" steps into it. The artifact must be
-# uploaded by the job that actually ships, in the run that ships it, so that a
-# rollback run reports the version it restored rather than the version tagged.
-# ulisseas-site's release.yml is the worked example (Pages deploy + rollback).
+# Manual runs (gh workflow run release.yml ...):
+#   -f deploy=true   release as usual, then deploy even if no version was cut
+#                    (publishes main as-is; deployed_version is the latest tag
+#                    reachable from main).
 on:
   push:
     branches: [main]
+  workflow_dispatch:
+    inputs:
+      deploy:
+        description: Deploy main as-is even if no version is cut
+        type: boolean
+        default: false
+
+# Empty for push events, which then get GitHub's default run name.
+run-name: ${{ inputs.deploy && 'Deploy main (manual)' || '' }}
 
 # The workflow grants nothing by default; each job asks for what it needs.
 permissions: {}
@@ -69,19 +81,50 @@ jobs:
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
           if [[ -n "$tag" ]]; then echo "Released $tag"; else echo "No new version."; fi
 
-      # Move these two steps into the deploy job once the project has one.
+  deploy:
+    needs: release
+    if: >-
+      ${{ needs.release.outputs.tag != '' ||
+          (github.event_name == 'workflow_dispatch' && inputs.deploy) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # tags, for the manual-deploy fallback below
+      - name: Upload Pages artifact
+        # Artifact name defaults to "github-pages", which deploy-pages looks up.
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: site/
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
+
       - name: Record deployed version
         # One line, read by the telemetry workflow (ulisseas/.github
-        # ci-telemetry) as the deployed_version label. Only when a version was
-        # cut: a run that ships nothing must not claim to have deployed.
-        if: ${{ steps.release.outputs.tag != '' }}
+        # ci-telemetry) as the deployed_version label. Release: the tag just
+        # cut. Manual deploy with no new version: the latest tag on main.
         env:
-          TAG: ${{ steps.release.outputs.tag }}
+          RELEASE_TAG: ${{ needs.release.outputs.tag }}
         run: |
-          printf '%s\n' "$TAG" > deployed-version
-          echo "deployed $TAG"
+          if [[ -n "$RELEASE_TAG" ]]; then v="$RELEASE_TAG"
+          else v=$(git describe --tags --abbrev=0 --match 'v*' 2>/dev/null || echo "v0.0.0")
+          fi
+          printf '%s\n' "$v" > deployed-version
+          echo "deployed $v"
       - name: Upload deployed version
-        if: ${{ steps.release.outputs.tag != '' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: deployed-version

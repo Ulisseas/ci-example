@@ -4,9 +4,9 @@
 #
 # Two jobs are required status checks on main (see scripts/harden-repo.sh), and
 # a required-check context is matched by job name alone, so keep the names:
-#   ci-build    replace the placeholder step with the project's real build and
-#               test steps ("ci-build" rather than "build" so it never collides
-#               with the build job a project usually adds to release.yml).
+#   ci-build    checks that site/index.html exists and is valid HTML
+#               ("ci-build" rather than "build" so it never collides with a
+#               build job in release.yml).
 #   commitlint  lints the commit message GitHub will create when the PR is
 #               squash-merged (title + body), so main only ever receives
 #               conventional commits and semantic-release can version them.
@@ -47,11 +47,12 @@ jobs:
           cache: npm
       - name: Install
         run: npm ci --ignore-scripts
-      # Placeholder: replace with the project's build and test steps, e.g.
-      #   - run: npm run check
-      #   - run: npm run build
-      - name: Build (placeholder)
-        run: npm run build
+      # The site is a single static file; the check is that it exists and is
+      # valid HTML (html-validate, pinned in package.json).
+      - name: Site exists
+        run: test -s site/index.html
+      - name: Validate HTML
+        run: npm run check
 
   commitlint:
     if: ${{ github.event_name == 'pull_request' }}
