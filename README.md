@@ -23,7 +23,7 @@ The synthetic uptime check for the site is provisioned by the private
 ## Dashboards
 
 - [Status](https://grafana.ulisseas.com/public-dashboards/dc3e15c21b8a4b2487cdf1dbab08dd64)
-- [CI](https://grafana.ulisseas.com/public-dashboards/9c7fd71e4e3d497f8e3be636275dc4a2)
+- [CI Status](https://grafana.ulisseas.com/public-dashboards/f7115f765ce84b779bd8dbe1240009ab)
 - [Releases](https://grafana.ulisseas.com/public-dashboards/6d289ba972de4c94ad4b29ebbd0f924a)
 
 ## Working in the repo
