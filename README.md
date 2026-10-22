@@ -30,7 +30,11 @@ The synthetic uptime check for the site is provisioned by the private
 
 Feature branch, PR with a conventional-commit title, squash-merge. `main` is
 protected by the `protect-main` ruleset (`scripts/harden-repo.sh`): PR-only,
-`ci-build` and `commitlint` required, linear history.
+`ci-build` and `commitlint` required, linear history. `protect-release-tags`
+stops `v*` tags from being deleted, force-pushed or moved, and releases are
+immutable. `DRY_RUN=1 scripts/harden-repo.sh` audits the repo: it exits 1 if a
+required check has never run or an action is unlisted or not SHA-pinned, and
+without `DRY_RUN` it refuses to apply until that is fixed.
 
     npm install      # installs the commit-msg hook
     npm run check    # html-validate site/
